@@ -1,6 +1,6 @@
 from enum import Enum
 
-class Currencies:
+class Currencies(Enum):
     BCOIN = 'BCOIN'
     CAKE = 'CAKE'
 
@@ -16,4 +16,7 @@ _CURRENCY_METADATA = {
 }
 
 def get_currency_metadata(currency):
+    if isinstance(currency, str):
+        currency = Currencies[currency]
+
     return _CURRENCY_METADATA.get(currency)

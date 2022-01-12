@@ -1,5 +1,7 @@
 from enum import Enum
 
+from urllib.parse import urljoin
+
 class BlockchainType(Enum):
     ETH = 'ETH'
     BSC = 'BSC'
@@ -33,6 +35,9 @@ class BlockchainMetadata:
     def block_explorer_url(self):
         return self._block_explorer_url
 
+    def get_transaction_url(self, txn_hash):
+        return urljoin(self._block_explorer_url, 'tx/%s' % txn_hash)
+
 
 _BLOCKCHAIN_METADATA = {
     BlockchainType.ETH: BlockchainMetadata(
@@ -59,4 +64,6 @@ _BLOCKCHAIN_METADATA = {
 }
 
 def get_blockchain_metadata(blockchain_type):
+    if isinstance(blockchain_type, str):
+        blockchain_type = BlockchainType[blockchain_type]
     return _BLOCKCHAIN_METADATA.get(blockchain_type)

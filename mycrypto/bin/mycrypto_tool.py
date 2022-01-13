@@ -1,6 +1,7 @@
 import click
 
 from mycrypto.commands import run_split_master_cmd
+from mycrypto.commands import run_update_balance_cmd
 from mycrypto.commands import run_create_wallets_cmd
 
 
@@ -31,7 +32,7 @@ def create_wallets(n, blockchain, csv_path, base_wallet_name, create_test, creat
 @click.option('--master-gas-reserve', type=click.FLOAT,
               help='The amount of main currency to reserve in the master wallet for gas fee.')
 @click.option('--master-token-reserve', type=click.FLOAT, default=0,
-              help='The amount of splitted token to reserve in the master wallet.')
+              help='The amount of splited token to reserve in the master wallet.')
 def split_master(input_csv_path, output_csv_path, blockchain, token, master_gas_reserve, master_token_reserve):
     """Split funds evenly across individual children wallets.
 
@@ -40,6 +41,16 @@ def split_master(input_csv_path, output_csv_path, blockchain, token, master_gas_
     return run_split_master_cmd(input_csv_path=input_csv_path, output_csv_path=output_csv_path,
                                 blockchain_name=blockchain, token_name=token, master_gas_reserve=master_gas_reserve,
                                 master_token_reserve=master_token_reserve)
+
+
+@cli.command('update_balance', short_help='Check & update the balance of wallets.')
+@click.argument('wallet_state_csv_path')
+@click.option('--blockchain', default='BSC', help='The blockchain name of the wallets.')
+@click.option('--token', default='CAKE', help='The staking token.')
+@click.option('--rewards_token', help='The rewards token.')
+def update_balance(wallet_state_csv_path, blockchain, token, rewards_token):
+    return run_update_balance_cmd(wallet_state_csv_path=wallet_state_csv_path, blockchain=blockchain, token=token,
+                                  rewards_token=rewards_token)
 
 
 if __name__ == '__main__':

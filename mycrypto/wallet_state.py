@@ -1,7 +1,12 @@
 import csv
 
 from collections import OrderedDict
+
+import shutil
+import os
+import click
 from eth_account import Account
+import tempfile
 
 # Initialize the wallet state fields within a ordered dict.
 WALLET_STATE_FIELDS = OrderedDict()
@@ -21,9 +26,9 @@ WALLET_STATE_FIELDS['Token Withdraw Transaction'] = 'token_withdraw_transaction'
 WALLET_STATE_FIELDS['Syrup Approve Transaction'] = 'syrup_approve_transaction'
 WALLET_STATE_FIELDS['Syrup Stake Transaction'] = 'syrup_stake_transaction'
 WALLET_STATE_FIELDS['Syrup Unstake Transaction'] = 'syrup_unstake_transaction'
-WALLET_STATE_FIELDS['Awards Token'] = 'awards_token'
-WALLET_STATE_FIELDS['Awards Balance'] = 'awards_balance'
-WALLET_STATE_FIELDS['Awards Withdraw Transaction'] = 'awards_withdraw_transaction'
+WALLET_STATE_FIELDS['Rewards Token'] = 'rewards_token'
+WALLET_STATE_FIELDS['Rewards Balance'] = 'rewards_balance'
+WALLET_STATE_FIELDS['Rewards Withdraw Transaction'] = 'rewards_withdraw_transaction'
 
 class WalletState:
     def __init__(self):
@@ -42,24 +47,35 @@ class WalletState:
         self.syrup_approve_transaction = ''
         self.syrup_stake_transaction = ''
         self.syrup_unstake_transaction = ''
-        self.awards_token = ''
-        self.awards_balance = ''
-        self.awards_withdraw_transaction = ''
+        self.rewards_token = ''
+        self.rewards_balance = ''
+        self.rewards_withdraw_transaction = ''
 
     def to_csv_row(self):
         return [getattr(self, field_name) for field_name in WALLET_STATE_FIELDS.values()]
+
+    @classmethod
+    def from_state_row(cls, row):
+        state = WalletState()
+        for field_attr, field_value in zip(WALLET_STATE_FIELDS.values(), row):
+            setattr(state, field_attr, field_value)
+        return state
 
     def get_account_from_key(self):
         return Account.from_key(self.private_key)
 
 
-
 class WalletStateStore:
-    def __init__(self, states_data, state_csv_path):
+    def __init__(self, states_data, state_csv_path, restored_from_file=False):
         self._states_data = states_data
         self._state_csv_path = state_csv_path
         self._states_by_name = {state.name: state for state in self._states_data}
         self._states_by_address = {state.address: state for state in self._states_data}
+        self._restored_from_file = restored_from_file
+        self._temp_state_csv_path = tempfile.mktemp()
+
+        if self._restored_from_file:
+            click.echo('Temp state file is located at: %s' % self._temp_state_csv_path)
 
         self._num_children_wallets = len(self._states_data)
         if self.has_master_wallet():
@@ -68,6 +84,15 @@ class WalletStateStore:
             self._num_children_wallets -= 1
 
         self.save()
+
+    @classmethod
+    def restore_from_state_file(cls, state_csv_path):
+        with open(state_csv_path) as state_csv_file:
+            csv_reader = csv.reader(state_csv_file)
+            rows = [row for row in csv_reader]
+
+        states_data = [WalletState.from_state_row(row) for row in rows[1:]]
+        return WalletStateStore(states_data, state_csv_path, restored_from_file=True)
 
     def get_state_by_name(self, name):
         return self._states_by_name[name]
@@ -95,11 +120,27 @@ class WalletStateStore:
         return self._states_data[start_index + index]
 
     def save(self):
-        with open(self._state_csv_path, 'w') as csv_file:
+        csv_path = self._temp_state_csv_path if self._restored_from_file else self._state_csv_path
+
+        with open(csv_path, 'w') as csv_file:
             csv_writer = csv.writer(csv_file)
             csv_writer.writerow(WALLET_STATE_FIELDS.keys())
             for state in self._states_data:
                 csv_writer.writerow(state.to_csv_row())
+
+    def finalize(self):
+        if not self._restored_from_file:
+            return
+
+        print('temp file is %s' % self._temp_state_csv_path)
+        print('state file is %s' % self._state_csv_path)
+
+        shutil.copyfile(src=self._temp_state_csv_path, dst=self._state_csv_path)
+        try:
+            os.remove(self._temp_state_csv_path)
+        except OSError:
+            pass
+
 
 class WalletStateReader:
     pass

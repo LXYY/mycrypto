@@ -32,9 +32,7 @@ def run_create_wallets_cmd(blockchain_name, num_wallets, csv_path, base_wallet_n
 
 
 def run_split_master_cmd(input_csv_path, output_csv_path, blockchain_name, token_name, master_gas_reserve,
-                         master_token_reserve):
-    num_transactions = 0
-
+                         master_token_reserve, continue_splitting):
     def _deposit_to_child(child_wallet_state, per_child_main, per_child_token):
         web3_client = get_web3_client()
 
@@ -45,6 +43,8 @@ def run_split_master_cmd(input_csv_path, output_csv_path, blockchain_name, token
         def _run_deposit_transaction(currency, amount, balance_attr, deposit_txn_attr, txn_runner):
             balance = getattr(child_wallet_state, balance_attr)
             if balance != '' and balance != '0':
+                click.echo('Skip depositing %s for %s (%s) as the balance is non-zero.' % (
+                    currency, child_wallet_state.name, child_wallet_state.address))
                 return
             txn_hash = txn_runner() if not dry_run else secrets.token_hex(32)
             txn_url = blockchain_metadata.get_transaction_url(txn_hash)
@@ -87,7 +87,9 @@ def run_split_master_cmd(input_csv_path, output_csv_path, blockchain_name, token
             wallet_state_store.save()
 
     wallet_reader = WalletReader()
-    wallet_state_store = wallet_reader.read_as_wallet_states_store(input_csv_path, output_csv_path)
+    wallet_state_store = (WalletStateStore.restore_from_state_file(input_csv_path)
+                          if continue_splitting else wallet_reader.read_as_wallet_states_store(input_csv_path,
+                                                                                               output_csv_path))
     wallet_state_store.save()
     blockchain_metadata = get_blockchain_metadata(blockchain_name)
     token_metadata = get_currency_metadata(token_name)
@@ -96,11 +98,20 @@ def run_split_master_cmd(input_csv_path, output_csv_path, blockchain_name, token
     num_children_wallets = wallet_state_store.get_num_children_wallets()
     master_main_balance = token_utils.get_main_token_balance(master_wallet_state.address)
     master_token_balance = token_utils.get_erc20_token_balance(token_metadata.contract, master_wallet_state.address)
-    per_child_main = (master_main_balance - Decimal(master_gas_reserve)) / Decimal(num_children_wallets)
-    per_child_token = (master_token_balance - Decimal(master_token_reserve)) / Decimal(num_children_wallets)
+    num_children_without_main_balance = sum(
+        [Decimal(state.main_balance) == 0 for state in wallet_state_store.get_states_data()])
+    num_children_without_token_balance = sum(
+        [Decimal(state.token_balance) == 0 for state in wallet_state_store.get_states_data()])
+
+    print(num_children_without_main_balance)
+    print(num_children_without_token_balance)
+
+    per_child_main = (master_main_balance - Decimal(master_gas_reserve)) / Decimal(num_children_without_main_balance)
+    per_child_token = (master_token_balance - Decimal(master_token_reserve)) / Decimal(
+        num_children_without_token_balance)
 
     run_test = False
-    dry_run = True
+    dry_run = False
 
     _start_transactions()
 
@@ -115,7 +126,8 @@ def run_update_balance_cmd(wallet_state_csv_path, blockchain, token, rewards_tok
 
         wallet_state.main_balance = token_utils.get_main_token_balance(wallet_state.address)
         wallet_state.token_balance = token_utils.get_erc20_token_balance(token_metadata.contract, wallet_state.address)
-        wallet_state.rewards_balance = token_utils.get_erc20_token_balance(rewards_token_metadata.contract, wallet_state.address)
+        wallet_state.rewards_balance = token_utils.get_erc20_token_balance(rewards_token_metadata.contract,
+                                                                           wallet_state.address)
 
         balances = [
             (wallet_state.main, wallet_state.main_balance),
@@ -124,7 +136,7 @@ def run_update_balance_cmd(wallet_state_csv_path, blockchain, token, rewards_tok
         ]
 
         balance_stats = ', '.join(['%s %s' % (balance, currency) for balance, currency in balances])
-        click.echo('%s (%s) - %s' %(wallet_state.name, wallet_state.address, balance_stats))
+        click.echo('%s (%s) - %s' % (wallet_state.name, wallet_state.address, balance_stats))
 
         wallet_state_store.save()
 

@@ -26,21 +26,27 @@ def create_wallets(n, blockchain, csv_path, base_wallet_name, create_test, creat
 
 @cli.command('split_master', short_help='Split master wallet evenly across children.')
 @click.argument('input_csv_path')
-@click.argument('output_csv_path')
+@click.argument('output_csv_path', default='')
 @click.option('--blockchain', default='BSC', help='The blockchain name of the wallets.')
 @click.option('--token', default='CAKE', help='The currency token to split.')
 @click.option('--master-gas-reserve', type=click.FLOAT,
               help='The amount of main currency to reserve in the master wallet for gas fee.')
 @click.option('--master-token-reserve', type=click.FLOAT, default=0,
               help='The amount of splited token to reserve in the master wallet.')
-def split_master(input_csv_path, output_csv_path, blockchain, token, master_gas_reserve, master_token_reserve):
+@click.option('--continue-splitting/--no-continue-splitting', default=False,
+              help='Whether to continue splitting from a previous state.')
+def split_master(input_csv_path, output_csv_path, blockchain, token, master_gas_reserve, master_token_reserve,
+                 continue_splitting):
     """Split funds evenly across individual children wallets.
 
     All of the wallet addresses are kept within INPUT_CSV_PATH, and all of the outputs wil be saved at OUTPUT_CSV_PATH.
+
+    OUTPUT_CSV_PATH is unnecessary when --continue is set. In this case there will be an in-place update at the input
+    state file.
     """
     return run_split_master_cmd(input_csv_path=input_csv_path, output_csv_path=output_csv_path,
                                 blockchain_name=blockchain, token_name=token, master_gas_reserve=master_gas_reserve,
-                                master_token_reserve=master_token_reserve)
+                                master_token_reserve=master_token_reserve, continue_splitting=continue_splitting)
 
 
 @cli.command('update_balance', short_help='Check & update the balance of wallets.')

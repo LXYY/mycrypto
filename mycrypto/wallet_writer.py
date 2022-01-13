@@ -23,7 +23,8 @@ class WalletWriter:
             csv_writer.writerow(self._fields)
 
             for name, wallet in self._wallets:
-                scan_url = urllib.parse.urljoin(self._blockchain_metadata.block_explorer_url, wallet.address)
+                scan_url = urllib.parse.urljoin(self._blockchain_metadata.block_explorer_url,
+                                                'address/' + wallet.address)
                 csv_writer.writerow(
                     [name, self._blockchain_metadata.type.name, wallet.address, Web3.toHex(wallet.privateKey),
                      scan_url])

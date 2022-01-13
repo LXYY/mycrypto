@@ -119,6 +119,9 @@ class WalletStateStore:
         start_index = len(self._states_data) - self._num_children_wallets
         return self._states_data[start_index + index]
 
+    def get_states_data(self):
+        return self._states_data
+
     def save(self):
         csv_path = self._temp_state_csv_path if self._restored_from_file else self._state_csv_path
 

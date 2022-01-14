@@ -32,6 +32,19 @@ def transfer_erc20_token(token_contract, from_wallet, to_wallet_address, amount,
     txn_hash = web3_client.eth.send_raw_transaction(signed_txn.rawTransaction)
     return Web3.toHex(txn_hash)
 
+def approve_token_spending(token_contract, wallet, spender_address):
+    amount = 2**256-1
+    contract = get_token_contract(token_contract)
+    web3_client = get_web3_client()
+    txn = contract.functions.approve(spender_address, amount).buildTransaction({
+        'from': wallet.address,
+        'nonce': web3_client.eth.get_transaction_count(wallet.address),
+        'gasPrice': web3_client.eth.gas_price,
+    })
+    signed_txn = web3_client.eth.account.sign_transaction(txn, wallet.privateKey)
+    txn_hash = web3_client.eth.send_raw_transaction(signed_txn.rawTransaction)
+    return Web3.toHex(txn_hash)
+
 def get_main_token_balance(address):
     return Web3.fromWei(get_web3_client().eth.get_balance(address), 'ether')
 

@@ -3,6 +3,8 @@ import click
 from mycrypto.commands import run_split_master_cmd
 from mycrypto.commands import run_update_balance_cmd
 from mycrypto.commands import run_create_wallets_cmd
+from mycrypto.commands import run_approve_spending_cmd
+from mycrypto.commands import run_stake_cmd
 
 
 @click.group()
@@ -53,10 +55,30 @@ def split_master(input_csv_path, output_csv_path, blockchain, token, master_gas_
 @click.argument('wallet_state_csv_path')
 @click.option('--blockchain', default='BSC', help='The blockchain name of the wallets.')
 @click.option('--token', default='CAKE', help='The staking token.')
-@click.option('--rewards_token', help='The rewards token.')
+@click.option('--rewards-token', help='The rewards token.')
 def update_balance(wallet_state_csv_path, blockchain, token, rewards_token):
     return run_update_balance_cmd(wallet_state_csv_path=wallet_state_csv_path, blockchain=blockchain, token=token,
                                   rewards_token=rewards_token)
+
+
+@cli.command('approve_spending', short_help='Approve contract to spend money for a currency.')
+@click.argument('wallet_state_csv_path')
+@click.option('--spender-contract')
+@click.option('--blockchain', default='BSC', help='The blockchain name of the wallets.')
+@click.option('--token', default='CAKE', help='The staking token.')
+def approve_spending(wallet_state_csv_path, spender_contract, blockchain, token):
+    return run_approve_spending_cmd(wallet_state_csv_path=wallet_state_csv_path, spender_contract=spender_contract,
+                                    blockchain=blockchain, token=token)
+
+
+@cli.command('stake', short_help='Stake into the syrup pool.')
+@click.argument('wallet_state_csv_path')
+@click.option('--syrup-pool-contract')
+@click.option('--blockchain', default='BSC', help='The blockchain name of the wallets.')
+@click.option('--token', default='CAKE', help='The staking token.')
+def stake(wallet_state_csv_path, syrup_pool_contract, blockchain, token):
+    return run_stake_cmd(wallet_state_csv_path=wallet_state_csv_path, syrup_pool_contract=syrup_pool_contract,
+                         blockchain=blockchain, token=token)
 
 
 if __name__ == '__main__':

@@ -11,6 +11,7 @@ from mycrypto.wallet import create_new_wallet
 from mycrypto.currencies import get_currency_metadata
 from mycrypto.blockchain_metadata import get_blockchain_metadata
 from mycrypto import token_utils
+from mycrypto import staking_utils
 
 
 def run_create_wallets_cmd(blockchain_name, num_wallets, csv_path, base_wallet_name, create_test, create_master, ):
@@ -155,5 +156,71 @@ def run_update_balance_cmd(wallet_state_csv_path, blockchain, token, rewards_tok
 
     for idx in range(wallet_state_store.get_num_children_wallets()):
         _check_and_update_balance(wallet_state_store.get_child_wallet_state(idx))
+
+    wallet_state_store.finalize()
+
+
+def run_approve_spending_cmd(wallet_state_csv_path, spender_contract, blockchain, token):
+    def _approve_spending(wallet_state):
+
+        web3_client = get_web3_client()
+        txn_hash = token_utils.approve_token_spending(token_metadata.contract, wallet_state.get_account_from_key(),
+                                                      spender_contract)
+        txn_url = blockchain_metadata.get_transaction_url(txn_hash)
+
+        click.echo('Approving for: %s (%s): %s' % (wallet_state.name, wallet_state.address, txn_url))
+        receipt = web3_client.eth.wait_for_transaction_receipt(txn_hash)
+        assert receipt['status'], 'Transaction %s got reverted.' % txn_url
+        wallet_state.syrup_approve_transaction = txn_url
+        wallet_state_store.save()
+
+    wallet_state_store = WalletStateStore.restore_from_state_file(wallet_state_csv_path)
+    blockchain_metadata = get_blockchain_metadata(blockchain)
+    token_metadata = get_currency_metadata(token)
+
+    click.echo('Approving %s spending for contract: %s ...' % (token_metadata.name, spender_contract))
+
+    run_test = False
+
+    if run_test and wallet_state_store.has_test_wallet():
+        _approve_spending(wallet_state_store.get_test_wallet_state())
+    else:
+        for idx in range(wallet_state_store.get_num_children_wallets()):
+            _approve_spending(wallet_state_store.get_child_wallet_state(idx))
+
+    wallet_state_store.finalize()
+
+
+def run_stake_cmd(wallet_state_csv_path, syrup_pool_contract, blockchain, token):
+    def _stake_max(wallet_state):
+        if wallet_state.syrup_stake_transaction:
+            click.echo('Skip staking for %s (%s) as a transaction exists.' % (wallet_state.name, wallet_state.address))
+            return
+
+        web3_client = get_web3_client()
+        amount = token_utils.get_erc20_token_balance(token_metadata.contract, wallet_state.address)
+        txn_hash = staking_utils.deposit(syrup_pool_contract, wallet_state.get_account_from_key(), amount)
+        txn_url = blockchain_metadata.get_transaction_url(txn_hash)
+
+        click.echo('Staking %s %s from %s (%s): %s ...' % (
+            amount, token_metadata.name, wallet_state.name, wallet_state.address, txn_url))
+        receipt = web3_client.eth.wait_for_transaction_receipt(txn_hash, timeout=240, poll_latency=0.3)
+        assert receipt['status'], 'Transaction %s got reverted.' % txn_url
+        wallet_state.syrup_stake_transaction = txn_url
+        wallet_state_store.save()
+
+    wallet_state_store = WalletStateStore.restore_from_state_file(wallet_state_csv_path)
+    blockchain_metadata = get_blockchain_metadata(blockchain)
+    token_metadata = get_currency_metadata(token)
+
+    click.echo('Staking into the Syrup Pool (contract: %s)...' % syrup_pool_contract)
+
+    run_test = False
+
+    if run_test and wallet_state_store.has_test_wallet():
+        _stake_max(wallet_state_store.get_test_wallet_state())
+    else:
+        for idx in range(wallet_state_store.get_num_children_wallets()):
+            _stake_max(wallet_state_store.get_child_wallet_state(idx))
 
     wallet_state_store.finalize()

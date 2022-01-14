@@ -6,6 +6,8 @@ from mycrypto.commands import run_create_wallets_cmd
 from mycrypto.commands import run_approve_spending_cmd
 from mycrypto.commands import run_stake_cmd
 from mycrypto.commands import run_unstake_cmd
+from mycrypto.commands import run_merge_to_master_cmd
+from mycrypto.commands import run_merge_main_currency_to_master
 
 
 @click.group()
@@ -89,6 +91,25 @@ def stake(wallet_state_csv_path, syrup_pool_contract, blockchain, token):
 def unstake(wallet_state_csv_path, syrup_pool_contract, blockchain):
     return run_unstake_cmd(wallet_state_csv_path=wallet_state_csv_path, syrup_pool_contract=syrup_pool_contract,
                            blockchain=blockchain)
+
+
+@cli.command('merge_to_master', short_help='Merge the funds into the master wallet.')
+@click.argument('wallet_state_csv_path')
+@click.option('--blockchain', default='BSC', help='The blockchain name of the wallets.')
+@click.option('--token', default='CAKE', help='The staking token.')
+@click.option('--rewards-token', help='The rewards token.')
+def merge_to_master(wallet_state_csv_path, blockchain, token, rewards_token):
+    """The merged funds doesn't include the main blockchain currency, as they need to be transferred in the end."""
+    return run_merge_to_master_cmd(wallet_state_csv_path=wallet_state_csv_path, blockchain=blockchain, token=token,
+                                   rewards_token=rewards_token)
+
+
+@cli.command('merge_main_currency_to_master', short_help='Merge the main blockchain currency into the master wallet.')
+@click.argument('wallet_state_csv_path')
+@click.option('--blockchain', default='BSC', help='The blockchain name of the wallets.')
+def merge_main_currency_to_master(wallet_state_csv_path, blockchain):
+    """The merged funds doesn't include the main blockchain currency, as they need to be transferred in the end."""
+    return run_merge_main_currency_to_master(wallet_state_csv_path=wallet_state_csv_path, blockchain=blockchain)
 
 
 if __name__ == '__main__':

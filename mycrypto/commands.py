@@ -8,6 +8,7 @@ from mycrypto.wallet_reader import WalletReader
 from mycrypto.wallet_state import WalletStateStore
 from mycrypto.wallet_writer import WalletWriter
 from mycrypto.web3_utils import get_web3_client
+from mycrypto.web3_utils import get_gas_fee
 from mycrypto.wallet import create_new_wallet
 from mycrypto.currencies import get_currency_metadata
 from mycrypto.blockchain_metadata import get_blockchain_metadata
@@ -259,5 +260,88 @@ def run_unstake_cmd(wallet_state_csv_path, syrup_pool_contract, blockchain):
     else:
         for idx in range(wallet_state_store.get_num_children_wallets()):
             _unstake(wallet_state_store.get_child_wallet_state(idx))
+
+    wallet_state_store.finalize()
+
+
+def run_merge_to_master_cmd(wallet_state_csv_path, blockchain, token, rewards_token):
+    def _transfer_token_to_master(wallet_state, metadata, withdraw_txn_attr_name):
+        if getattr(wallet_state, withdraw_txn_attr_name):
+            click.echo(
+                'Skip transferring %s from %s (%s) to master as a transaction exists.' % (
+                    metadata.name, wallet_state.name, wallet_state.address))
+            return
+
+        web3_client = get_web3_client()
+        balance = token_utils.get_erc20_token_balance(metadata.contract, wallet_state.address)
+        txn_hash = token_utils.transfer_erc20_token(metadata.contract, wallet_state.get_account_from_key(),
+                                                    master_address, balance)
+        txn_url = blockchain_metadata.get_transaction_url(txn_hash)
+        click.echo('Transferring all %s %s into %s (%s): %s ...' % (
+            balance, metadata.name, wallet_state.name, wallet_state.address, txn_url))
+        receipt = web3_client.eth.wait_for_transaction_receipt(txn_hash, timeout=240, poll_latency=0.3)
+        assert receipt['status'], 'Transaction %s got reverted.' % txn_url
+        setattr(wallet_state, withdraw_txn_attr_name, txn_url)
+        wallet_state_store.save()
+
+    def _transfer_to_master(wallet_state):
+        _transfer_token_to_master(wallet_state, token_metadata, 'token_withdraw_transaction')
+        _transfer_token_to_master(wallet_state, rewards_token_metadata, 'rewards_withdraw_transaction')
+
+    wallet_state_store = WalletStateStore.restore_from_state_file(wallet_state_csv_path)
+    blockchain_metadata = get_blockchain_metadata(blockchain)
+    token_metadata = get_currency_metadata(token)
+    rewards_token_metadata = get_currency_metadata(rewards_token)
+    master_address = wallet_state_store.get_master_wallet_state().address
+
+    click.echo('Merging funds from child wallets into the master wallet (%s)...' % master_address)
+
+    run_test = False
+
+    if run_test and wallet_state_store.has_test_wallet():
+        _transfer_to_master(wallet_state_store.get_test_wallet_state())
+    else:
+        for idx in range(wallet_state_store.get_num_children_wallets()):
+            _transfer_to_master(wallet_state_store.get_child_wallet_state(idx))
+
+    wallet_state_store.finalize()
+
+
+def run_merge_main_currency_to_master(wallet_state_csv_path, blockchain):
+    def _transfer_main_currency_to_master(wallet_state):
+        if wallet_state.main_withdraw_transaction:
+            click.echo(
+                'Skip transferring %s from %s (%s) to master as a transaction exists.' % (
+                    blockchain_metadata.currency, wallet_state.name, wallet_state.address))
+            return
+
+        web3_client = get_web3_client()
+        balance = token_utils.get_main_token_balance(wallet_state.address)
+        gas_fee = get_gas_fee(21000)
+        txn_hash = token_utils.transfer_main_token(wallet_state.get_account_from_key(), master_address,
+                                                   balance - gas_fee)
+        txn_url = blockchain_metadata.get_transaction_url(txn_hash)
+        click.echo('Transferring all %s %s (gas fee: %s %s) into master from %s (%s): %s ...' % (
+            balance - gas_fee, blockchain_metadata.currency, gas_fee, blockchain_metadata.currency, wallet_state.name,
+            wallet_state.address, txn_url))
+        receipt = web3_client.eth.wait_for_transaction_receipt(txn_hash, timeout=240, poll_latency=0.3)
+        assert receipt['status'], 'Transaction %s got reverted.' % txn_url
+        wallet_state.main_withdraw_transaction = txn_url
+        wallet_state_store.save()
+
+    wallet_state_store = WalletStateStore.restore_from_state_file(wallet_state_csv_path)
+    blockchain_metadata = get_blockchain_metadata(blockchain)
+    master_address = wallet_state_store.get_master_wallet_state().address
+
+    click.echo('Merging %s from child wallets into the master wallet (%s)...' % (
+        blockchain_metadata.currency, master_address))
+
+    run_test = False
+
+    if run_test and wallet_state_store.has_test_wallet():
+        _transfer_main_currency_to_master(wallet_state_store.get_test_wallet_state())
+    else:
+        for idx in range(wallet_state_store.get_num_children_wallets()):
+            _transfer_main_currency_to_master(wallet_state_store.get_child_wallet_state(idx))
 
     wallet_state_store.finalize()

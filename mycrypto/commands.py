@@ -2,6 +2,7 @@ import click
 import os
 import secrets
 from decimal import Decimal
+from web3 import Web3
 
 from mycrypto.wallet_reader import WalletReader
 from mycrypto.wallet_state import WalletStateStore
@@ -222,5 +223,41 @@ def run_stake_cmd(wallet_state_csv_path, syrup_pool_contract, blockchain, token)
     else:
         for idx in range(wallet_state_store.get_num_children_wallets()):
             _stake_max(wallet_state_store.get_child_wallet_state(idx))
+
+    wallet_state_store.finalize()
+
+
+def run_unstake_cmd(wallet_state_csv_path, syrup_pool_contract, blockchain):
+    def _unstake(wallet_state):
+        if wallet_state.syrup_unstake_transaction:
+            click.echo(
+                'Skip unstaking for %s (%s) as a transaction exists.' % (wallet_state.name, wallet_state.address))
+            return
+
+        web3_client = get_web3_client()
+        staking_balance = Web3.fromWei(staking_utils.get_user_info(syrup_pool_contract, wallet_state.address)[0],
+                                       'ether')
+        txn_hash = staking_utils.withdraw(syrup_pool_contract, wallet_state.get_account_from_key(), staking_balance)
+        txn_url = blockchain_metadata.get_transaction_url(txn_hash)
+
+        click.echo('Unstaking all %s tokens into %s (%s): %s ...' % (
+            staking_balance, wallet_state.name, wallet_state.address, txn_url))
+        receipt = web3_client.eth.wait_for_transaction_receipt(txn_hash, timeout=240, poll_latency=0.3)
+        assert receipt['status'], 'Transaction %s got reverted.' % txn_url
+        wallet_state.syrup_unstake_transaction = txn_url
+        wallet_state_store.save()
+
+    wallet_state_store = WalletStateStore.restore_from_state_file(wallet_state_csv_path)
+    blockchain_metadata = get_blockchain_metadata(blockchain)
+
+    click.echo('Unstaking all deposits from the Syrup Pool (contract: %s)...' % syrup_pool_contract)
+
+    run_test = False
+
+    if run_test and wallet_state_store.has_test_wallet():
+        _unstake(wallet_state_store.get_test_wallet_state())
+    else:
+        for idx in range(wallet_state_store.get_num_children_wallets()):
+            _unstake(wallet_state_store.get_child_wallet_state(idx))
 
     wallet_state_store.finalize()

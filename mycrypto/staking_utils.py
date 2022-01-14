@@ -6,10 +6,30 @@ SYRUP_POOL_ABI = '[{"inputs":[],"stateMutability":"nonpayable","type":"construct
 
 
 def deposit(syrup_pool_contract, wallet, amount):
-    wei_amount =  Web3.toWei(amount, 'ether')
+    wei_amount = Web3.toWei(amount, 'ether')
     web3_client = get_web3_client()
     contract = get_syrup_pool_contract(syrup_pool_contract)
     txn = contract.functions.deposit(wei_amount).buildTransaction({
+        'from': wallet.address,
+        'nonce': web3_client.eth.get_transaction_count(wallet.address),
+        'gasPrice': web3_client.eth.gas_price,
+        'gas': 300000,
+    })
+    signed_txn = web3_client.eth.account.sign_transaction(txn, wallet.privateKey)
+    txn_hash = web3_client.eth.send_raw_transaction(signed_txn.rawTransaction)
+    return Web3.toHex(txn_hash)
+
+
+def get_user_info(syrup_pool_contract, address):
+    contract = get_syrup_pool_contract(syrup_pool_contract)
+    return contract.functions.userInfo(address).call()
+
+
+def withdraw(syrup_pool_contract, wallet, amount):
+    wei_amount = Web3.toWei(amount, 'ether')
+    web3_client = get_web3_client()
+    contract = get_syrup_pool_contract(syrup_pool_contract)
+    txn = contract.functions.withdraw(wei_amount).buildTransaction({
         'from': wallet.address,
         'nonce': web3_client.eth.get_transaction_count(wallet.address),
         'gasPrice': web3_client.eth.gas_price,

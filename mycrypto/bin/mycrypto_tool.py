@@ -5,6 +5,7 @@ from mycrypto.commands import run_update_balance_cmd
 from mycrypto.commands import run_create_wallets_cmd
 from mycrypto.commands import run_approve_spending_cmd
 from mycrypto.commands import run_stake_cmd
+from mycrypto.commands import run_unstake_cmd
 
 
 @click.group()
@@ -79,6 +80,15 @@ def approve_spending(wallet_state_csv_path, spender_contract, blockchain, token)
 def stake(wallet_state_csv_path, syrup_pool_contract, blockchain, token):
     return run_stake_cmd(wallet_state_csv_path=wallet_state_csv_path, syrup_pool_contract=syrup_pool_contract,
                          blockchain=blockchain, token=token)
+
+
+@cli.command('unstake', short_help='Unstake the syrup pool.')
+@click.argument('wallet_state_csv_path')
+@click.option('--syrup-pool-contract')
+@click.option('--blockchain', default='BSC', help='The blockchain name of the wallets.')
+def unstake(wallet_state_csv_path, syrup_pool_contract, blockchain):
+    return run_unstake_cmd(wallet_state_csv_path=wallet_state_csv_path, syrup_pool_contract=syrup_pool_contract,
+                           blockchain=blockchain)
 
 
 if __name__ == '__main__':

@@ -1,5 +1,4 @@
 from mycrypto.web3_utils import get_web3_client
-from web3.contract import Contract
 from web3 import Web3
 import functools
 

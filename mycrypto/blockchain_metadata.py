@@ -6,6 +6,7 @@ class BlockchainType(Enum):
     ETH = 'ETH'
     BSC = 'BSC'
     POLYGON = 'POLYGON'
+    FANTOM = 'FANTOM'
 
 class BlockchainMetadata:
     def __init__(self, type, rpc_url, id, currency, block_explorer_url):
@@ -61,6 +62,13 @@ _BLOCKCHAIN_METADATA = {
         currency='MATIC',
         block_explorer_url='https://polygonscan.com',
     ),
+    BlockchainType.FANTOM: BlockchainMetadata(
+        type=BlockchainType.FANTOM,
+        rpc_url='https://rpc.ftm.tools',
+        id=250,
+        currency='FTM',
+        block_explorer_url='https://ftmscan.com/',
+    )
 }
 
 def get_blockchain_metadata(blockchain_type):

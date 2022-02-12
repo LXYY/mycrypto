@@ -3,14 +3,14 @@ from web3.middleware import geth_poa_middleware
 
 import functools
 
-WSS_PROVIDER_URL = 'wss://green-wandering-firefly.bsc.quiknode.pro/ae8a759c7645d5d55537ed9fe16ce4e95edb49fa/'
+WSS_PROVIDER_URL = 'wss://blue-weathered-dust.fantom.quiknode.pro/237f50101eac2e6ebfc59da36ffaa02e28973e0d/'
 
 @functools.lru_cache(maxsize=None)
-def get_web3_client():
-    web3_client = Web3(Web3.WebsocketProvider(WSS_PROVIDER_URL))
+def get_web3_client(wss_provider_url=WSS_PROVIDER_URL):
+    web3_client = Web3(Web3.WebsocketProvider(wss_provider_url))
     web3_client.middleware_onion.inject(geth_poa_middleware, layer=0)
     return web3_client
 
 
 def get_gas_fee(gas_to_use):
-    return Web3.fromWei(gas_to_use *  get_web3_client().eth.gas_price, 'ether')
+    return Web3.fromWei(gas_to_use * get_web3_client().eth.gas_price, 'ether')

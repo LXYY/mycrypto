@@ -10,8 +10,10 @@ from mycrypto.wallet_writer import WalletWriter
 from mycrypto.web3_utils import get_web3_client
 from mycrypto.web3_utils import get_gas_fee
 from mycrypto.wallet import create_new_wallet
+from mycrypto.wallet import get_wallet_from_key
 from mycrypto.currencies import get_currency_metadata
 from mycrypto.blockchain_metadata import get_blockchain_metadata
+from mycrypto.electron_trader import ElectronTrader
 from mycrypto import token_utils
 from mycrypto import staking_utils
 
@@ -95,7 +97,7 @@ def run_split_master_cmd(input_csv_path, output_csv_path, blockchain_name, token
                                                                                                output_csv_path))
     wallet_state_store.save()
     blockchain_metadata = get_blockchain_metadata(blockchain_name)
-    token_metadata = get_currency_metadata(token_name)
+    token_metadata = get_currency_metadata(token_name, blockchain_name)
 
     master_wallet_state = wallet_state_store.get_master_wallet_state()
     num_children_wallets = wallet_state_store.get_num_children_wallets()
@@ -145,8 +147,8 @@ def run_update_balance_cmd(wallet_state_csv_path, blockchain, token, rewards_tok
 
     wallet_state_store = WalletStateStore.restore_from_state_file(wallet_state_csv_path)
     blockchain_metadata = get_blockchain_metadata(blockchain)
-    token_metadata = get_currency_metadata(token)
-    rewards_token_metadata = get_currency_metadata(rewards_token)
+    token_metadata = get_currency_metadata(token, blockchain)
+    rewards_token_metadata = get_currency_metadata(rewards_token, blockchain)
 
     click.echo('Checking & updating the wallet balances...')
 
@@ -178,7 +180,7 @@ def run_approve_spending_cmd(wallet_state_csv_path, spender_contract, blockchain
 
     wallet_state_store = WalletStateStore.restore_from_state_file(wallet_state_csv_path)
     blockchain_metadata = get_blockchain_metadata(blockchain)
-    token_metadata = get_currency_metadata(token)
+    token_metadata = get_currency_metadata(token, blockchain)
 
     click.echo('Approving %s spending for contract: %s ...' % (token_metadata.name, spender_contract))
 
@@ -213,7 +215,7 @@ def run_stake_cmd(wallet_state_csv_path, syrup_pool_contract, blockchain, token)
 
     wallet_state_store = WalletStateStore.restore_from_state_file(wallet_state_csv_path)
     blockchain_metadata = get_blockchain_metadata(blockchain)
-    token_metadata = get_currency_metadata(token)
+    token_metadata = get_currency_metadata(token, blockchain)
 
     click.echo('Staking into the Syrup Pool (contract: %s)...' % syrup_pool_contract)
 
@@ -290,8 +292,8 @@ def run_merge_to_master_cmd(wallet_state_csv_path, blockchain, token, rewards_to
 
     wallet_state_store = WalletStateStore.restore_from_state_file(wallet_state_csv_path)
     blockchain_metadata = get_blockchain_metadata(blockchain)
-    token_metadata = get_currency_metadata(token)
-    rewards_token_metadata = get_currency_metadata(rewards_token)
+    token_metadata = get_currency_metadata(token, blockchain)
+    rewards_token_metadata = get_currency_metadata(rewards_token, blockchain)
     master_address = wallet_state_store.get_master_wallet_state().address
 
     click.echo('Merging funds from child wallets into the master wallet (%s)...' % master_address)
@@ -345,3 +347,11 @@ def run_merge_main_currency_to_master(wallet_state_csv_path, blockchain):
             _transfer_main_currency_to_master(wallet_state_store.get_child_wallet_state(idx))
 
     wallet_state_store.finalize()
+
+
+def run_auto_trade_elct_cmd(key_file_path, proto_price_gap, max_stable_coin_slippage, poll_interval_ms):
+    wallet = get_wallet_from_key(open(key_file_path).read())
+    electron_trader = ElectronTrader(wallet=wallet, proto_price_gap=proto_price_gap,
+                                     max_stable_coin_slippage=max_stable_coin_slippage,
+                                     poll_interval_ms=poll_interval_ms)
+    electron_trader.run()

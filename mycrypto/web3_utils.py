@@ -1,5 +1,9 @@
 from web3 import Web3
 from web3.middleware import geth_poa_middleware
+from web3.middleware import local_filter_middleware
+from web3.middleware import time_based_cache_middleware
+from web3.middleware import latest_block_based_cache_middleware
+from web3.middleware import simple_cache_middleware
 
 import functools
 
@@ -9,6 +13,11 @@ WSS_PROVIDER_URL = 'wss://blue-weathered-dust.fantom.quiknode.pro/237f50101eac2e
 def get_web3_client(wss_provider_url=WSS_PROVIDER_URL):
     web3_client = Web3(Web3.WebsocketProvider(wss_provider_url))
     web3_client.middleware_onion.inject(geth_poa_middleware, layer=0)
+    web3_client.middleware_onion.add(local_filter_middleware)
+    web3_client.middleware_onion.add(time_based_cache_middleware)
+    web3_client.middleware_onion.add(latest_block_based_cache_middleware)
+    web3_client.middleware_onion.add(simple_cache_middleware)
+
     return web3_client
 
 

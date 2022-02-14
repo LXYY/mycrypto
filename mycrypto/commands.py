@@ -349,9 +349,8 @@ def run_merge_main_currency_to_master(wallet_state_csv_path, blockchain):
     wallet_state_store.finalize()
 
 
-def run_auto_trade_elct_cmd(key_file_path, proto_price_gap, max_stable_coin_slippage, poll_interval_ms):
-    wallet = get_wallet_from_key(open(key_file_path).read())
-    electron_trader = ElectronTrader(wallet=wallet, proto_price_gap=proto_price_gap,
-                                     max_stable_coin_slippage=max_stable_coin_slippage,
-                                     poll_interval_ms=poll_interval_ms)
+def run_auto_trade_elct_cmd(key_file_path, proto_price_gap, max_price_raise, max_slippage, poll_interval_ms):
+    wallet = get_wallet_from_key(open(key_file_path).read().strip())
+    electron_trader = ElectronTrader(wallet=wallet, proto_price_gap=proto_price_gap, max_price_raise=max_price_raise,
+                                     max_slippage=max_slippage, poll_interval_ms=poll_interval_ms)
     electron_trader.run()

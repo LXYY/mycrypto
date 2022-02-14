@@ -48,30 +48,47 @@ class CurrencySwapRoutingData:
         return self._routing_currency_contract_addresses
 
 
-def get_amounts_in(amount_out, routing_path, dex, blockchain):
+def _get_amounts(amount, routing_path, dex, blockchain, to_get_amount_in):
     dex_metadata = get_dex_metadata(dex)
     router_contract = get_uniswap_v2_router_contract(dex_metadata.router_contract)
     routing_data = CurrencySwapRoutingData(routing_path, blockchain)
 
-    amounts = router_contract.functions.getAmountsIn(Web3.toWei(amount_out, routing_data.output_currency.wei_unit),
-                                                     routing_data.routing_currency_contract_addresses).call()
-    return Web3.fromWei(amounts[0], routing_data.input_currency.wei_unit)
+    function_name = 'getAmountsIn' if to_get_amount_in else 'getAmountsOut'
+    source_currency = routing_data.output_currency if to_get_amount_in else routing_data.input_currency
+    target_currency = routing_data.input_currency if to_get_amount_in else routing_data.output_currency
+    target_amount_index = 0 if to_get_amount_in else -1
+
+    amounts = getattr(router_contract.functions, function_name)(
+        Web3.toWei(amount, source_currency.wei_unit), routing_data.routing_currency_contract_addresses).call()
+    return Web3.fromWei(amounts[target_amount_index], target_currency.wei_unit)
 
 
-def swap_token_for_exact_token(amount_out, amount_in_max, routing_path, wallet, dex, blockchain):
+def _swap_tokens_for_tokens(amount_in, amount_out, routing_path, wallet, dex, blockchain, is_exact_output_token,
+                            is_eth_output=False):
     web3_client = get_web3_client()
     dex_metadata = get_dex_metadata(dex)
     router_contract = get_uniswap_v2_router_contract(dex_metadata.router_contract)
     routing_data = CurrencySwapRoutingData(routing_path, blockchain)
+    amount_in_wei = Web3.toWei(amount_in, routing_data.input_currency.wei_unit)
     amount_out_wei = Web3.toWei(amount_out, routing_data.output_currency.wei_unit)
-    amount_in_max_wei = Web3.toWei(amount_in_max, routing_data.input_currency.wei_unit)
+
+    if is_eth_output:
+        function_name = 'swapTokensForExactETH' if is_exact_output_token else 'swapExactTokensForETH'
+        gas_multiplier = 1
+    else:
+        function_name = 'swapTokensForExactTokens' if is_exact_output_token else 'swapExactTokensForTokens'
+        gas_multiplier = 1.5
+
+    exact_amount_wei = amount_out_wei if is_exact_output_token else amount_in_wei
+    non_exact_amount_limit_wei = amount_in_wei if is_exact_output_token else amount_out_wei
+
     timeout_in_sec = 240
-    txn = router_contract.functions.swapTokensForExactTokens(
-        amount_out_wei, amount_in_max_wei, routing_data.routing_currency_contract_addresses,
+    txn = getattr(router_contract.functions, function_name)(
+        exact_amount_wei, non_exact_amount_limit_wei, routing_data.routing_currency_contract_addresses,
         wallet.address, int(time.time()) + timeout_in_sec).buildTransaction({
         'from': wallet.address,
         'nonce': web3_client.eth.get_transaction_count(wallet.address),
-        'gasPrice': web3_client.eth.gas_price,
+        'gasPrice': int(web3_client.eth.gas_price * gas_multiplier),
     })
     signed_txn = web3_client.eth.account.sign_transaction(txn, wallet.privateKey)
     txn_hash = Web3.toHex(web3_client.eth.send_raw_transaction(signed_txn.rawTransaction))
@@ -82,11 +99,39 @@ def swap_token_for_exact_token(amount_out, amount_in_max, routing_path, wallet, 
 
     # Suppress warnings message when processing log receipts as there will be some unrecognizable event types.
     swap_logs = router_contract.events.Swap().processReceipt(receipt, errors=EventLogErrorFlags.Discard)
-    amount_in = Web3.fromWei(swap_logs[0]['args']['amount0In'] + swap_logs[0]['args']['amount1In'],
-                             routing_data.input_currency.wei_unit)
-    amount_out = Web3.fromWei(swap_logs[-1]['args']['amount0Out'] + swap_logs[-1]['args']['amount1Out'],
-                              routing_data.output_currency.wei_unit)
-    return TokenSwapResult(txn_hash=txn_hash, amount_in=amount_in, amount_out=amount_out)
+    final_amount_in = Web3.fromWei(swap_logs[0]['args']['amount0In'] + swap_logs[0]['args']['amount1In'],
+                                   routing_data.input_currency.wei_unit)
+    final_amount_out = Web3.fromWei(swap_logs[-1]['args']['amount0Out'] + swap_logs[-1]['args']['amount1Out'],
+                                    routing_data.output_currency.wei_unit)
+    return TokenSwapResult(txn_hash=txn_hash, amount_in=final_amount_in, amount_out=final_amount_out)
+
+
+def get_amounts_in(amount_out, routing_path, dex, blockchain):
+    return _get_amounts(amount_out, routing_path, dex, blockchain, to_get_amount_in=True)
+
+
+def get_amounts_out(amount_in, routing_path, dex, blockchain):
+    return _get_amounts(amount_in, routing_path, dex, blockchain, to_get_amount_in=False)
+
+
+def swap_tokens_for_exact_tokens(amount_out, amount_in_max, routing_path, wallet, dex, blockchain):
+    return _swap_tokens_for_tokens(amount_in_max, amount_out, routing_path, wallet, dex, blockchain,
+                                   is_exact_output_token=True, is_eth_output=False)
+
+
+def swap_exact_tokens_for_tokens(amount_in, amount_out_min, routing_path, wallet, dex, blockchain):
+    return _swap_tokens_for_tokens(amount_in, amount_out_min, routing_path, wallet, dex, blockchain,
+                                   is_exact_output_token=False, is_eth_output=False)
+
+
+def swap_tokens_for_exact_eth(amount_out, amount_in_max, routing_path, wallet, dex, blockchain):
+    return _swap_tokens_for_tokens(amount_in_max, amount_out, routing_path, wallet, dex, blockchain,
+                                   is_exact_output_token=True, is_eth_output=True)
+
+
+def swap_exact_tokens_for_eth(amount_in, amount_out_min, routing_path, wallet, dex, blockchain):
+    return _swap_tokens_for_tokens(amount_in, amount_out_min, routing_path, wallet, dex, blockchain,
+                                   is_exact_output_token=False, is_eth_output=True)
 
 
 @functools.lru_cache(maxsize=None)

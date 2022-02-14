@@ -1,5 +1,5 @@
 import click
-
+import logging
 from mycrypto.commands import run_split_master_cmd
 from mycrypto.commands import run_update_balance_cmd
 from mycrypto.commands import run_create_wallets_cmd
@@ -7,7 +7,6 @@ from mycrypto.commands import run_approve_spending_cmd
 from mycrypto.commands import run_stake_cmd
 from mycrypto.commands import run_unstake_cmd
 from mycrypto.commands import run_merge_to_master_cmd
-from mycrypto.commands import run_merge_main_currency_to_master
 from mycrypto.commands import run_merge_main_currency_to_master
 from mycrypto.commands import run_auto_trade_elct_cmd
 
@@ -116,19 +115,27 @@ def merge_main_currency_to_master(wallet_state_csv_path, blockchain):
 
 @cli.command('auto_trade_elct', short_help='An auto trader for monitor & trade ELCT from SpookySwap.')
 @click.argument('key_file_path')
-@click.option('--proto_price_gap', type=click.FLOAT, default=-0.1,
-              short_help='The gap between ELCT and PROTO for triggering auto buy. E.g.: -0.1 will trigger auto-buy when the price of ELCT is at 90% of PROTO\'s.')
-@click.option('--max_stable_coin_slippage', type=click.FLOAT, defaut=0.1,
-              short_help='The stable coin slippage when buying ELCT. This can help reducing transaction failure rate.')
-@click.option('--poll_interval_ms', type=click.INT, default=1000,
-              short_help='The time interval (in ms) for polling ELCT price from SpookySwap.')
-def auto_trade_elct(key_file_path, proto_price_gap, max_stable_coin_slippage, poll_interval_ms):
+@click.option('--proto_price_gap', type=click.FLOAT, default=-0.08,
+              help='The gap between ELCT and PROTO for triggering auto buy. E.g.: -0.1 will trigger auto-buy when the price of ELCT is at 90% of PROTO\'s.')
+@click.option('--max_price_raise', type=click.FLOAT, default=0.04,
+              help='The maximum allowed price raise rate caused by the purchase.')
+@click.option('--max_slippage', type=click.FLOAT, default=0.02,
+              help='Max allowed slippage rate on the non-exact token limit (+ for DAI, - for ELCT).')
+@click.option('--poll_interval_ms', type=click.INT, default=500,
+              help='The time interval (in ms) for polling ELCT price from SpookySwap.')
+@click.option('--log_file', help='The file path to keep the logs.')
+def auto_trade_elct(key_file_path, proto_price_gap, max_price_raise, max_slippage, poll_interval_ms, log_file):
     """Automatically monitor & buy ELCT with proper price (the ones are below or close to PROTO market price).
 
     KEY_FILE_PATH is the file for storing the private key of the wallet address.
     """
+    logging.basicConfig(filename=log_file, filemode='a',
+                        format='%(levelname)s %(asctime)s %(message)s',
+                        datefmt='%m/%d/%Y %H:%M:%S',
+                        level=logging.INFO)
     return run_auto_trade_elct_cmd(key_file_path=key_file_path, proto_price_gap=proto_price_gap,
-                                   max_stable_coin_slippage=max_stable_coin_slippage, poll_interval_ms=poll_interval_ms)
+                                   max_price_raise=max_price_raise, max_slippage=max_slippage,
+                                   poll_interval_ms=poll_interval_ms)
 
 
 if __name__ == '__main__':

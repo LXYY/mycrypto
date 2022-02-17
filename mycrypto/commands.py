@@ -14,6 +14,7 @@ from mycrypto.wallet import get_wallet_from_key
 from mycrypto.currencies import get_currency_metadata
 from mycrypto.blockchain_metadata import get_blockchain_metadata
 from mycrypto.electron_trader import ElectronTrader
+from mycrypto.electron_staking_stats import ElectronStakingStats
 from mycrypto import token_utils
 from mycrypto import staking_utils
 
@@ -349,8 +350,18 @@ def run_merge_main_currency_to_master(wallet_state_csv_path, blockchain):
     wallet_state_store.finalize()
 
 
-def run_auto_trade_elct_cmd(key_file_path, proto_price_gap, max_price_raise, max_slippage, poll_interval_ms):
+def run_auto_trade_elct_cmd(key_file_path, proto_price_gap, max_price_raise, max_slippage, poll_interval_ms,
+                            price_gap_increase_interval_sec):
     wallet = get_wallet_from_key(open(key_file_path).read().strip())
     electron_trader = ElectronTrader(wallet=wallet, proto_price_gap=proto_price_gap, max_price_raise=max_price_raise,
-                                     max_slippage=max_slippage, poll_interval_ms=poll_interval_ms)
+                                     max_slippage=max_slippage, poll_interval_ms=poll_interval_ms,
+                                     price_gap_increase_interval_sec=price_gap_increase_interval_sec)
     electron_trader.run()
+
+
+def run_summarize_elct_staking_stats_cmd(output_csv_path):
+    stats = ElectronStakingStats()
+    print('Summarizing ELCT staking stats...')
+    stats.summarize()
+    stats.export(output_csv_path)
+    print('The full ELCT staking stats has been exported to: %s' % output_csv_path)

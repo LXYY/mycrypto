@@ -28,16 +28,16 @@ class ElectronTraderConfig:
 
 
 class ElectronTrader:
-    def __init__(self, wallet, proto_price_gap, max_price_raise, max_slippage, poll_interval_ms):
+    def __init__(self, wallet, proto_price_gap, max_price_raise, max_slippage, poll_interval_ms, price_gap_increase_interval_sec):
         self._wallet = wallet
         self._config = ElectronTraderConfig(proto_price_gap=Decimal(proto_price_gap),
                                             max_price_raise=Decimal(max_price_raise),
                                             max_slippage=Decimal(max_slippage),
                                             poll_interval_ms=poll_interval_ms,
+                                            price_gap_increase_interval_sec=price_gap_increase_interval_sec,
                                             min_ftm_reserve=Decimal(1.0),
                                             ftm_refill_amount=Decimal(5),
                                             elct_trade_batch=Decimal(50),
-                                            price_gap_increase_interval_sec=3600,
                                             price_gap_increase_amount=Decimal(0.01),
                                             price_gap_decrease_amount=Decimal(0.005))
         self._dai_metadata = get_currency_metadata('DAI', 'FANTOM')

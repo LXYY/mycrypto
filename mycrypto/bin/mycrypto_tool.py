@@ -9,6 +9,7 @@ from mycrypto.commands import run_unstake_cmd
 from mycrypto.commands import run_merge_to_master_cmd
 from mycrypto.commands import run_merge_main_currency_to_master
 from mycrypto.commands import run_auto_trade_elct_cmd
+from mycrypto.commands import run_summarize_elct_staking_stats_cmd
 
 
 @click.group()
@@ -115,7 +116,7 @@ def merge_main_currency_to_master(wallet_state_csv_path, blockchain):
 
 @cli.command('auto_trade_elct', short_help='An auto trader for monitor & trade ELCT from SpookySwap.')
 @click.argument('key_file_path')
-@click.option('--proto_price_gap', type=click.FLOAT, default=-0.08,
+@click.option('--proto_price_gap', type=click.FLOAT, default=-0.15,
               help='The gap between ELCT and PROTO for triggering auto buy. E.g.: -0.1 will trigger auto-buy when the price of ELCT is at 90% of PROTO\'s.')
 @click.option('--max_price_raise', type=click.FLOAT, default=0.04,
               help='The maximum allowed price raise rate caused by the purchase.')
@@ -123,8 +124,11 @@ def merge_main_currency_to_master(wallet_state_csv_path, blockchain):
               help='Max allowed slippage rate on the non-exact token limit (+ for DAI, - for ELCT).')
 @click.option('--poll_interval_ms', type=click.INT, default=500,
               help='The time interval (in ms) for polling ELCT price from SpookySwap.')
+@click.option('--price_gap_increase_interval_sec', type=click.INT, default=7200,
+              help='The time interval the price gap to increase when there are no transactions made for a while.')
 @click.option('--log_file', help='The file path to keep the logs.')
-def auto_trade_elct(key_file_path, proto_price_gap, max_price_raise, max_slippage, poll_interval_ms, log_file):
+def auto_trade_elct(key_file_path, proto_price_gap, max_price_raise, max_slippage, poll_interval_ms,
+                    price_gap_increase_interval_sec, log_file):
     """Automatically monitor & buy ELCT with proper price (the ones are below or close to PROTO market price).
 
     KEY_FILE_PATH is the file for storing the private key of the wallet address.
@@ -135,7 +139,14 @@ def auto_trade_elct(key_file_path, proto_price_gap, max_price_raise, max_slippag
                         level=logging.INFO)
     return run_auto_trade_elct_cmd(key_file_path=key_file_path, proto_price_gap=proto_price_gap,
                                    max_price_raise=max_price_raise, max_slippage=max_slippage,
-                                   poll_interval_ms=poll_interval_ms)
+                                   poll_interval_ms=poll_interval_ms,
+                                   price_gap_increase_interval_sec=price_gap_increase_interval_sec)
+
+
+@cli.command('summarize_elct_staking_stats', short_help='Summarize the ELCT staking stats.')
+@click.argument('output_csv_path')
+def summarize_elct_staking_stats(output_csv_path):
+    return run_summarize_elct_staking_stats_cmd(output_csv_path)
 
 
 if __name__ == '__main__':

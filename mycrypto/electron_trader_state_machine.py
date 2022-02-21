@@ -152,11 +152,10 @@ class ElectronTraderStateMachine:
         print('Refilling gas fee...')
         print('Transferring %s DAI into FTM...' % dai_amount)
         # It's OK to have large variance when swapping for gas fees.
-        result = swap_exact_tokens_for_eth(dai_amount, estimated_ftm_amount * 0.5, ['DAI', 'WFTM'],
+        result = swap_exact_tokens_for_eth(dai_amount, estimated_ftm_amount * Decimal(0.5), ['DAI', 'WFTM'],
                                            self._trader.get_wallet(), 'SPOOKY_SWAP', 'FANTOM')
         print(result)
         LOG.info('[Gas Refill] %s', result)
-        # TODO: event logging
 
         if (dai_amount == self._context.dai_balance):
             return ElectronTraderState.WAITING_FOR_FUNDS
